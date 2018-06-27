@@ -1,0 +1,263 @@
+---
+title: "Analiza liczby wypo¿yczonych rowerów"
+author: "Magdalena Walasek"
+output:
+  html_document: default
+  html_notebook: default
+---
+
+## Opis zbioru danych
+
+Raport obejmuje analizê zbioru danych - Bike Sharing Dataset.    
+Dane pochodz¹ z https://archive.ics.uci.edu/ml/datasets/bike+sharing+dataset  
+  
+
+Zbiór danych zawiera dzienn¹ liczbê wypo¿yczonych rowerów miêdzy latami 2011 i 2012 w systemie Bikeshare Capital z danymi pogodowymi i informacjami sezonowymi.  
+Zbiór danych zawiera 16 zmiennych i 731 obserwacji.  
+Na podstawie zbioru danych zostanie przeprowadzona analiza liczby wypo¿yczanych rowerów w ci¹gu dnia w zale¿noœci od warunków pogodowych i pory roku.
+
+
+Systemy wypo¿yczania rowerów to nowa generacja tradycyjnych wypo¿yczalni rowerów, w których ca³y proces od cz³onkostwa, wypo¿yczenia i zwrotu sprzêtu sta³ siê automatyczny. Dziêki tym systemom u¿ytkownik mo¿e ³atwo wypo¿yczyæ rower z okreœlonego miejsca i wróciæ z powrotem w inne miejsce. W samej Polsce w 2016 roku rowery zosta³y wypo¿yczone ponad 10 milionów razy, a w systemie by³o zarejestrowanych ponad 676 tysiêcy u¿ytkowników. Obecnie istnieje du¿e zainteresowanie tymi systemami ze wzglêdu na ich wa¿n¹ rolê w ruchu drogowym, œrodowiskowym i zdrowotnym.  
+Oprócz interesuj¹cych, rzeczywistych zastosowañ systemów rowerów publicznych, cechy danych generowanych przez te systemy sprawiaj¹, ¿e s¹ one atrakcyjne dla badañ. W przeciwieñstwie do innych us³ug transportowych, takich jak autobus lub metro, czas podró¿y, wypo¿yczenia i oddania jest wyraŸnie zapisywany w tych systemach. Funkcja ta zamienia system wypo¿yczania rowerów w wirtualn¹ sieæ czujników, która mo¿e s³u¿yæ do wykrywania mobilnoœci w mieœcie. Dlatego oczekuje siê, ¿e wiêkszoœæ wa¿nych wydarzeñ w mieœcie bêdzie mo¿na wykryæ poprzez monitorowanie tych danych.
+  
+
+
+### Charakterystyka danych
+
+	- instant: numer obserwacji
+	- dteday : data
+	- season : pora roku (1:zima, 2:wiosna, 3:lato, 4:jesieñ)
+	- yr : rok (0: 2011, 1:2012)
+	- mnth : miesi¹c (od 1 do 12)
+	- holiday : czy dzieñ jest dniem wakacyjnym, czy nie
+	- weekday : dzieñ tygodnia
+	- workingday : jeœli dzieñ jest pracuj¹cy, to 1, w innym przypadku 0.
+	+ weathersit : 
+		- 1: Czyste niebo, lekkie zachmurzenie, czêœciowe zachmurzenie
+		- 2: Mg³a + Pochmurno, Mg³a
+		- 3: Lekki œnieg, Lekki deszcz + burza + Chmury, Lekki deszcz + Chmury
+		- 4: Mocny deszcz + Deszcz lodowy + Burza + Mg³a, œnieg + Mg³a
+	- temp : Znormalizowana temperatura w Celsjuszach. Wartoœci s¹ podzielone przez 41 (max)
+	- atemp: Znormalizowana odczuwalna temperatura. Wartoœci s¹ podzielone przez 50 (max)
+	- hum: Normalized humidity. The values are divided to 100 (max)
+	- windspeed: Znormalizowana prêdkoœæ wiatru. Wartoœci s¹ podzielone przez 67 (max)
+	- casual: liczba sporadycznych u¿ytkowników
+	- registered: liczba zarejestrowanych u¿ytkowników
+	- cnt: liczba wypo¿yczonych rowerów
+
+##Wstêpna analiza danych 
+
+####Wczytywanie bibliotek.
+```{r}
+library(base)
+library(lattice)
+library(caret)
+```
+
+####Wczytywanie danych.
+```{r}
+dane <- read.csv("day.csv", header=TRUE, sep=",")
+```
+
+####Podstawowe informacje o danych
+```{r}
+
+head(dane, n=7)
+str(dane)
+summary(dane)
+
+```
+
+####Histogramy
+```{r}
+par(mfrow=c(1,2))
+hist(dane$cnt, col="pink", xlab = "Liczba wypo¿yczonych rowerów", main = "Histogram cnt")
+hist(dane$registered, col="blue", xlab = "Liczba zarejestrowanych u¿ytkowników", main = "Histogram registered")
+par(mfrow=c(1,1))
+```
+Na histogramie zmiennej cnt widaæ, ¿e najczêœciej wypo¿yczanych jest 4000-5000 rowerów w ci¹gu dnia. o wiele rzadziej siê zdarza, ¿e wypo¿yczane jest tylko 0-1000 rowerów lub powy¿ej 8000 rowerów.      
+W przypadku histogramu zmiennej registered, widaæ, ¿e najczêœciej w ci¹gu dnia rejestruje siê 3500-4000 u¿ytkowników. Znacznie rzadziej jest to tylko 0-500 u¿ytkowników.  
+
+```{r}
+par(mfrow=c(1,2))
+hist(dane$casual, col="green", xlab = "Liczba sporadycznych u¿ytkowników", main = "Histogram casual")
+
+hist(dane$temp, col="yellow", xlab = "Temperatura", main = "Histogram temp")
+par(mfrow=c(1,1))
+```
+Na histogramie zmiennej casual, mo¿emy zobaczyæ, ¿e najczêœciej w ci¹gu dnia wypo¿ycza od 0 do 500 sporadycznych u¿ytkowników. Rzadko zdarza siê, ¿e wypo¿yczone zostanie 3000-3500 rowerów w ci¹gu dnia przez sporadycznych klientów.  
+
+Histogram zmiennej temp pokazuje, ¿e najczêœciej w ci¹gu dnia temperatura wynosi³a od 0,2 do 03, czyli od ok.8,2 do 12,3 stopni Celsjusza i od 0,5 do 0,6, czyli od ok. 20,5 do 24,6 stopni Celsjusza.
+
+  
+####Wykres pude³kowy zmiennej cnt
+```{r}
+boxplot(dane$cnt, col="pink")
+```
+  
+Wykres pude³kowy, pokazuje, ¿e œrednia zmiennej cnt wynosi ok. 4500, Wartoœæ Minimalna jest bliska 0, a maksymalna ok. 8500. 
+ 
+  
+####Wykresy gêstoœci
+
+```{r}
+
+par(mfrow=c(2,2))
+
+plot(density(dane$cnt), lwd=4, col=6, main="Gêstoœæ cnt")
+plot(density(dane$registered), lwd=4, col="blue", main="Gêstoœæ registered")
+plot(density(dane$casual), lwd=4, col="yellow", main="Gêstoœæ casual")
+plot(density(dane$temp), lwd=4, col="green", main="Gêstoœæ temp")
+par(mfrow=c(1,1))
+
+
+```
+
+####Wykresy zale¿noœci zmiennych
+
+```{r}
+par(mfrow=c(2,2))
+plot(dane[c("cnt","registered")])
+plot(dane[c("cnt","temp")])
+plot(dane[c("cnt","hum")])
+plot(dane[c("cnt","casual")])
+par(mfrow=c(1,1))
+```
+Na podstawie powy¿szych wykresów, mo¿na przypuszczaæ, ¿e istnieje korelacja pomiêdzy zaprezentowanymi zmiennymi.  
+    
+Zmienna weathersit i mnth jest w tej chwili zmienn¹ numeryczn¹, na potrzeby analizy, zostanie przekonwertowana na factor. 
+```{r}  
+dane$weathersit <- factor(dane$weathersit)
+dane$mnth <- factor(dane$mnth)
+
+``` 
+  
+####Podzia³ zbioru danych na rok 2011 i 2012.
+
+```{r}
+dane.2011 <- dane[dane$yr == '0',]
+
+dane.2012 <- dane[dane$yr == '1',]
+
+```
+
+
+####Porównanie liczby zarejestrowanych u¿ytkowników oraz wypo¿yczonych rowerów w 2011 i 2012 roku.
+
+```{r}
+
+par(mfrow=c(1,2))
+
+plot(lowess(dane.2012$registered~dane.2012$mnth), type = "o", lwd=3, col="pink", xlab="Miesi¹c", ylim = c(0,6700), ylab="Liczba zarejestrowanych u¿ytkowników")
+lines(lowess(dane.2011$registered~dane.2011$mnth), type = "o",col=6, lwd=3)
+
+plot(lowess(dane.2012$cnt~dane.2012$mnth), col=5,type = "o", lwd=3, xlab="Miesi¹c", ylim = c(0,6700), ylab="Liczba wypo¿yczonych rowerów")
+lines(lowess(dane.2011$cnt~dane.2011$mnth), col=8,type = "o", lwd=3)
+
+par(mfrow=c(1,1))
+
+```
+
+Na powy¿szych wykresach widaæ, ¿e liczba zarejestrowanych u¿ytkowników oraz wypo¿yczonych rowerów jest znacz¹co wy¿sza w roku 2012 w porównaniu do roku 2011. Dodatkowo widaæ, ¿e w miesi¹cach letnich wypo¿yczane jest wiêcej rowerów i rejestruje siê wiêcej nowych u¿ytkowników.
+  
+
+####Wykres pokazuj¹cy liczbê wypo¿yczonych rowerów w ci¹gu dnia w zale¿noœci od warunków pogodowych i miesi¹ca.   
+  
+```{r}
+
+ggplot(data=dane, aes(x=weathersit , y=cnt)) + 
+  geom_violin(aes(fill=weathersit), alpha=0.6) + ylab("Liczba wypo¿yczonych rowerów w ci¹gu dnia") + geom_jitter(size = 2, alpha=0.5, aes(color = season), position = position_jitter(width=0.1)) + scale_color_continuous("Pora roku") 
+
+```  
+
+Wykres pokazuje, ¿e zdecydowanie wiêcej rowerów w ci¹gu dnia wypo¿yczanych jest przy dobrych warunkach pogodowych. U¿ytkownicy rzadko decyduj¹ siê na wypo¿yczenie rowerów w zimê. Najwiêcej wypo¿yczanych jest w sezonie letnim.
+  
+  
+####Wykres prezentuj¹cy liczbê wypo¿yczanych rowerów w ci¹gu dnia w poszczególnych miesi¹cach, z uwzglêdnieniem oceny pogody i temperatury    
+```{r}
+ggplot(data=dane.2011, aes(x=mnth , y=cnt)) +
+  geom_point(aes(color=weathersit, size=temp),alpha=0.6) + 
+  xlab("Miesi¹c") + ylab("Liczba wypo¿yczonych rowerów w ci¹gu dnia w 2011 roku") + scale_size_continuous(name="Temperatura") + scale_color_discrete("Pogoda")
+
+```  
+  
+Powy¿szy wykres pokazuje, ¿e najwiêcej wypo¿yczanych rowerów w ci¹gu dnia jest w miesi¹cach letnich, kiedy jest dobra pogoda i wy¿sze temperatury.
+    
+    
+####Wykres ukazuj¹cy liczbê zarejestrowanych u¿ytkowników w ci¹gu dnia w zale¿noœci od oceny pogody i pory roku.
+```{r}  
+ggplot(dane, aes(x=weathersit, y=registered)) + xlab("Pogoda") + ylab("Liczba zarejestrowanych u¿ytkowików w ci¹gu dnia") +geom_jitter(position = position_jitter(width = 0.3),aes(color=season), size = 3, alpha = 0.6) + scale_color_gradient(name = "Pora roku", low = "pink", high = "blue")
+``` 
+  
+Na wykresie widaæ, ¿e najwiêcej u¿ytkowników rejestruje siê przy dobrych warunkach pogodowych i przewa¿nie w sezonie letnim.  
+
+
+##Model regresji liniowej
+
+####Podzia³ zbioru na treningowy i testowy
+
+```{r}
+set.seed(101) 
+sample <- sample.int(nrow(dane), floor(.75*nrow(dane)), replace = F)
+dane.train <- dane[sample, ]
+dane.test <- dane[-sample, ]
+```
+
+####Budowanie modelu na zbiorze treningowym i sprawdzanie istotnoœci zmiennych w modelu
+
+```{r}
+m1 <- lm(cnt ~ temp + mnth + holiday + weekday + workingday + weathersit + temp + hum + windspeed + casual, data=dane.train)
+summary (m1)
+```
+
+####Model bez zmiennych nieistotnych.
+
+```{r}
+m2 <- lm(cnt ~ temp + mnth + weathersit + workingday + hum + casual, data=dane.train)  
+summary (m2)  
+```
+
+
+####Wyrzucenie zmiennych nieistotnych z modelu.
+
+```{r}
+m3 <- lm(cnt ~ registered, data=dane.train)
+summary(m3)
+
+print(m3)
+```
+
+####Predykcja na zbiorze testowym.
+
+```{r}
+cntPred <- predict(m3, dane.test) 
+
+actuals_preds <- data.frame(cbind(actuals=dane.test$cnt, predicteds=cntPred))
+correlation_accuracy <- cor(actuals_preds)
+correlation_accuracy
+
+head(actuals_preds)
+```
+
+Predykcja wydaje siê byæ dobrze dopasowana do danych. 
+  
+
+####Sprawdzenie œredniego procentowego b³êdu bezwzglêdnego i oceny dopasowania modelu.
+
+```{r}
+
+min_max_accuracy <- mean(apply(actuals_preds, 1, min) / apply(actuals_preds, 1, max))  
+min_max_accuracy
+
+mape <- mean(abs((actuals_preds$predicteds - actuals_preds$actuals))/actuals_preds$actuals)  
+mape
+
+```
+Œredni procentowy b³¹d bezwzglêdny jest stosunkowo niski, a min/max accuracy stosunkowo wysokie, co œwiadczy o dobrym dopasowaniu modelu do danych.
+
+
+##Podsumowanie
+
+Bior¹c pod uwagê powy¿sz¹ analizê mo¿na stwierdziæ, ¿e warunki pogodowe i pora roku maj¹ bardzo du¿y wp³yw na liczbê wypo¿yczanych rowerów w ci¹gu dnia. Jednak¿e, najwiêkszy wp³yw ma liczba u¿ytkowników rejestruj¹cych siê w ci¹gu dnia do systemu. Co jest zaskakuj¹ce, to, to, ¿e pomimo gorszych warunków pogodowych i niskiej temperatury, wypo¿yczanie rowerów nadal cieszy siê du¿¹ popularnoœci¹. Pozytywnym zjawiskiem, jest te¿ fakt, ¿e liczba rejestruj¹cych siê u¿ytkowników i wypo¿yczonych rowerów wzros³¹ znacz¹co w ci¹gu roku. Jest to bardzo pozytywny trend, który ma pozytywny wp³yw na nasze zdrowie i œrodowisko.
+  
+
